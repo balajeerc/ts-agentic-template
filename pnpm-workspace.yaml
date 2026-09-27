@@ -1,0 +1,5 @@
+# Packages allowed to run their build/postinstall scripts. Everything else is
+# installed with scripts off — add a package here only after looking at what
+# its build step does.
+allowBuilds:
+  esbuild: true

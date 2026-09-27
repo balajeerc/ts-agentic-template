@@ -1,0 +1,7 @@
+dist
+node_modules
+coverage
+.git
+.husky
+*.log
+pnpm-lock.yaml

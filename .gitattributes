@@ -1,0 +1,2 @@
+# Lockfiles are generated — keep them out of diffs and merge them by regeneration
+pnpm-lock.yaml linguist-generated=true -diff
