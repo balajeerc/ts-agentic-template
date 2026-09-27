@@ -40,12 +40,6 @@ agent_rules/            # the rules — the one real copy
 
 Edit `agent_rules/` only. The three other paths are symlinks to it.
 
-### Scripts
-
-- `scripts/bg-task.sh` (`pnpm bg`) — runs a long job in a detached tmux session
-  so it outlives whatever started it, with a continuously-written log and a
-  status file you can `wait` on. Needs `tmux`.
-
 ## Getting started
 
 ```bash
@@ -63,15 +57,14 @@ Then:
 
 ## Commands
 
-| Command                                     | What it does                                                  |
-| ------------------------------------------- | ------------------------------------------------------------- |
-| `pnpm check`                                | typecheck → lint → knip → jscpd → depcruise → test. The gate. |
-| `pnpm typecheck`                            | `tsc --noEmit`                                                |
-| `pnpm lint`                                 | ESLint, `--max-warnings=0`                                    |
-| `pnpm format`                               | Prettier, writes                                              |
-| `pnpm test` / `test:watch`                  | Vitest                                                        |
-| `pnpm build`                                | emits `dist/` with declarations                               |
-| `pnpm bg <start\|status\|wait\|logs\|list>` | detached long jobs                                            |
+| Command                    | What it does                                                  |
+| -------------------------- | ------------------------------------------------------------- |
+| `pnpm check`               | typecheck → lint → knip → jscpd → depcruise → test. The gate. |
+| `pnpm typecheck`           | `tsc --noEmit`                                                |
+| `pnpm lint`                | ESLint, `--max-warnings=0`                                    |
+| `pnpm format`              | Prettier, writes                                              |
+| `pnpm test` / `test:watch` | Vitest                                                        |
+| `pnpm build`               | emits `dist/` with declarations                               |
 
 `pnpm check` is also the `pre-commit` hook, so a commit cannot land red.
 

@@ -14,7 +14,6 @@
     "check:code-duplication": "jscpd src --min-lines 10 --threshold 0 --ignore \"**/__fixtures__/**\"",
     "check:dependency-rules": "depcruise src --config .dependency-cruiser.cjs",
     "check": "pnpm typecheck && pnpm lint && pnpm check:unused-code && pnpm check:code-duplication && pnpm check:dependency-rules && pnpm test",
-    "bg": "bash scripts/bg-task.sh",
     "prepare": "husky"
   },
   "devDependencies": {

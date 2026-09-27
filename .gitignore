@@ -27,6 +27,3 @@ scratch.md
 
 # Coverage reports
 /coverage/
-
-# Background-task logs + status files (scripts/bg-task.sh)
-/.bg-tasks/
