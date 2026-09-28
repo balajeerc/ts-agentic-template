@@ -6,6 +6,7 @@ import unicorn from 'eslint-plugin-unicorn';
 import perfectionist from 'eslint-plugin-perfectionist';
 import pluginN from 'eslint-plugin-n';
 import pluginPromise from 'eslint-plugin-promise';
+import vitest from '@vitest/eslint-plugin';
 import eslintConfigPrettier from 'eslint-config-prettier';
 
 /*
@@ -103,7 +104,23 @@ const sharedTypeScriptRules = {
   'unicorn/custom-error-definition': 'error',
   'unicorn/error-message': 'error',
   'unicorn/escape-case': 'error',
-  'unicorn/expiring-todo-comments': 'warn',
+  /*
+   * Deferred work has to carry an expiry date. `allowWarningComments: false` is
+   * what makes an undated marker an error rather than something the rule shrugs
+   * at; on the date it names, the build fails and someone decides again, which
+   * is the entire point of writing one down.
+   *
+   * The sonarjs equivalent is switched off below. The two cannot both be
+   * satisfied: sonarjs rejects the marker outright, so no form of the comment
+   * passes and the only ways through are deleting the note or disabling the
+   * rule. Neither leaves a record.
+   *
+   * The required form is spelled out under "Deferred work" in
+   * `agent_rules/02-coding-guidelines.md`. It is written there rather than here
+   * because this rule reads comments, and a comment demonstrating the marker
+   * would itself be an undated marker.
+   */
+  'unicorn/expiring-todo-comments': ['error', { allowWarningComments: false }],
   'unicorn/explicit-length-check': 'error',
   'unicorn/filename-case': ['error', { case: 'camelCase', ignore: ['^[A-Z].*\\.tsx?$'] }],
   'unicorn/no-abusive-eslint-disable': 'error',
@@ -137,6 +154,9 @@ const sharedTypeScriptRules = {
 
   // SonarJS rule adjustments
   'sonarjs/redundant-type-aliases': 'off', // Type aliases provide semantic meaning
+  // The unicorn rule above dates the marker; this one bans it outright. Only
+  // one of the two can be on.
+  'sonarjs/todo-tag': 'off',
   'sonarjs/cognitive-complexity': 'error',
   'sonarjs/no-nested-functions': 'error',
 
@@ -198,7 +218,7 @@ const sharedTypeScriptRules = {
 
 export default tseslint.config(
   {
-    ignores: ['dist', 'node_modules', 'coverage'],
+    ignores: ['dist', 'node_modules', 'coverage', 'reports', '.stryker-tmp'],
   },
   // TypeScript sources. `**/*.ts` rather than a src/scripts allowlist so that a
   // root-level config file (vitest.config.ts) is linted too, and `projectService`
@@ -240,11 +260,57 @@ export default tseslint.config(
       'no-restricted-syntax': ['error', focusedTestSelector],
     },
   },
-  // Tests. The production rules stay on; these are the ones that only cost
-  // noise in a test file.
+  /*
+   * Tests. Two things happen here: the production rules that only cost noise in
+   * a test file are switched off, and `@vitest/eslint-plugin` is switched on.
+   *
+   * The plugin is the part that matters. A test file is the one place where
+   * broken code still reports success — `it.only` quietly parks the rest of the
+   * suite, a body with no `expect` passes by construction, an `expect` behind an
+   * `if` asserts nothing on the other branch. None of that shows up in a test
+   * run, a coverage number or a diff review; all of it shows up here.
+   *
+   * Scope note: this is the only ESLint config block with a plugin the star
+   * threshold in `agent_rules/02` does not clear on its own — 512 stars on
+   * `vitest-dev/eslint-plugin-vitest`. It is first-party to vitest (17.1k), the
+   * same reasoning the rules already apply to an official wrapper action, and it
+   * was adopted with explicit sign-off rather than silently.
+   */
   {
     files: ['**/*.test.ts', '**/*.integration.test.ts'],
+    plugins: { vitest },
     rules: {
+      ...vitest.configs.recommended.rules,
+
+      // Recommended has this at 'warn'. `--max-warnings=0` makes that fatal
+      // anyway, so say what is meant.
+      'vitest/no-disabled-tests': 'error',
+
+      // A branch inside a test means the assertions taken depend on the data,
+      // and the path that asserts nothing is the one that will be taken on the
+      // day it matters. Branch in the fixture, not in the test.
+      'vitest/no-conditional-in-test': 'error',
+      'vitest/no-conditional-tests': 'error',
+
+      // `expect` inside a loop or a callback may simply never execute; an
+      // explicit count is what turns that into a failure rather than a pass.
+      // Straight-line tests are left alone.
+      'vitest/prefer-expect-assertions': [
+        'error',
+        { onlyFunctionsWithExpectInCallback: true, onlyFunctionsWithExpectInLoop: true },
+      ],
+
+      // A returned promise is not an awaited promise: the test ends before the
+      // assertion resolves and the failure lands in the next test, or nowhere.
+      'vitest/no-test-return-statement': 'error',
+
+      // Structure and naming, so a suite reads the same whoever wrote it.
+      'vitest/consistent-test-it': ['error', { fn: 'it', withinDescribe: 'it' }],
+      'vitest/require-top-level-describe': 'error',
+      'vitest/prefer-importing-vitest-globals': 'error',
+      'vitest/no-alias-methods': 'error',
+      'vitest/prefer-to-be': 'error',
+
       '@typescript-eslint/explicit-function-return-type': 'off',
       '@typescript-eslint/no-non-null-assertion': 'off',
       'max-nested-callbacks': ['error', { max: 5 }],
@@ -252,6 +318,13 @@ export default tseslint.config(
       // A `describe` block is itself a function, so this counts the whole suite
       // as one body. `max-lines` still caps the file at 500.
       'max-lines-per-function': 'off',
+      // `vitest/no-focused-tests` and `vitest/no-disabled-tests` above cover
+      // this ground properly here — they understand `describe.only`,
+      // `it.each(...).only` and the placeholder forms, which a syntax selector
+      // does not. The
+      // selector stays on everywhere else as a backstop; the `process.env` ban
+      // applies to tests exactly as it does to production code.
+      'no-restricted-syntax': ['error', processEnvSelector],
     },
   },
   // Plain JS / config files — no type-aware rules, so no project service needed.
@@ -293,6 +366,8 @@ export default tseslint.config(
       'unicorn/filename-case': ['error', { case: 'camelCase', ignore: ['^[A-Z].*\\.jsx?$'] }],
       'unicorn/no-abusive-eslint-disable': 'error',
       'unicorn/no-array-push-push': 'error',
+      'unicorn/expiring-todo-comments': ['error', { allowWarningComments: false }],
+      'sonarjs/todo-tag': 'off',
       'unicorn/no-console-spaces': 'error',
       'unicorn/no-lonely-if': 'error',
       'unicorn/no-null': 'off',

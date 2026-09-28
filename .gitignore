@@ -27,3 +27,10 @@ scratch.md
 
 # Coverage reports
 /coverage/
+
+# Mutation testing: scratch sandbox and generated report
+/.stryker-tmp/
+/reports/
+
+# Pinned third-party binaries, installed by `pnpm tools:install`
+/.tools/

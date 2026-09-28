@@ -51,6 +51,25 @@
   so adding one back produces dead config that reads as enforced.
 - `pnpm check:format` is what fails the gate on unformatted code.
 
+## Deferred work
+
+- A deferral has to carry a date. `unicorn/expiring-todo-comments` runs with
+  `allowWarningComments: false`, so an undated marker is a lint error.
+
+  ```ts
+  // TODO [2026-12-01]: drop the shim once the upstream fix ships
+  ```
+
+- On that date the build fails and someone decides again. That is the point:
+  an undated note is a decision nobody ever has to revisit.
+- `sonarjs/todo-tag` is switched off, and must stay off. It bans the marker
+  outright, which leaves no form of the comment that passes — so the only ways
+  through are deleting the note or disabling a rule, and neither leaves a
+  record.
+- `unicorn/expiring-todo-comments` reads comments, so it fires on a comment
+  that merely demonstrates the form. That is why the example lives here, in
+  markdown, and not in `eslint.config.js`.
+
 ## Types
 
 - `strict` is on. Do not widen it to make an error go away.
@@ -83,10 +102,10 @@
   - If a candidate is below 2,000 stars (and not `eslint-community`), do not
     install it silently. Report the star count to the user and ask for
     explicit permission before proceeding.
-  - GitHub Actions are dependencies too — apply the same check to the action's
-    repository. The official wrapper action for a high-star project (for
-    example `gitleaks/gitleaks-action` for `gitleaks/gitleaks`, ~29k stars)
-    counts as that project, not as a standalone package.
+  - Third-party binaries are dependencies too, even though they are not in
+    `package.json`. Apply the same check to the tool's repository, then pin the
+    version and verify a checksum — `scripts/installGitleaks.sh` is the
+    pattern. Never fetch `latest`, and never pipe a download into a shell.
 - Install with scripts off: `pnpm add --ignore-scripts <package>`.
 - After a fresh clone, run `pnpm hooks:install`. `--ignore-scripts` skips the
   `prepare` script that installs husky, so without it the git hooks are inert.
@@ -99,6 +118,18 @@
   install pass. Each entry is a reviewed exception, pinned to an exact version.
 - A package that needs its build step goes in `allowBuilds`, one at a time,
   after looking at what the step does.
+- `auditConfig.ignoreGhsas` in `pnpm-workspace.yaml` silences one advisory at a
+  time, with the reasoning written beside it. Never raise
+  `--audit-level` instead: that hides every future finding of that severity,
+  not the one that was reviewed.
+
+### Recorded exceptions to the star threshold
+
+- `@vitest/eslint-plugin` — 512 stars on `vitest-dev/eslint-plugin-vitest`.
+  Adopted with explicit sign-off. It is first-party to vitest (17.1k stars),
+  the same reasoning already applied to an official wrapper action.
+- Add to this list rather than quietly installing. An exception nobody wrote
+  down is indistinguishable from the rule not being followed.
 
 ## Tests
 
@@ -108,3 +139,65 @@
   grows some.
 - Coverage has a floor, checked by `pnpm check`. Deleting or skipping a test to
   get to green fails the gate instead.
+
+### Lint is part of the test suite
+
+- `@vitest/eslint-plugin` runs on every `*.test.ts` file.
+- It fails a test with no assertion, a focused or disabled test, an `expect`
+  behind an `if`, and two tests with the same name in one block.
+- Those are the failures a test run cannot report, because each of them makes
+  the run pass.
+- Do not silence one. A test that trips a rule here is a test that is not
+  checking what its name says it checks.
+
+### Mutation testing
+
+- `pnpm test:mutation` runs Stryker. The `pre-push` hook runs it.
+- It changes the source one small edit at a time and reruns the suite: `>`
+  becomes `>=`, a string becomes `""`, a branch is dropped.
+- A mutant that **survives** is a line no test pins down. Coverage cannot see
+  this — the line ran, nothing asserted on what it did.
+- Read a survivor as a missing assertion, not as a line to delete.
+- If a line is unkillable because the only caller cannot reach the interesting
+  case, extract it to `*.utils.ts` and test it directly. That is how
+  `src/env.utils.ts` came to exist.
+- The `break` threshold in `stryker.conf.mjs` is a ratchet. It only goes up.
+- It is deliberately not in `pnpm check`: that runs on every commit, and a
+  mutation run does not fit in a commit gate.
+
+### The numbers, and what actually holds them
+
+Every number below is quoted in prose somewhere in this file or the README, and
+enforced by a config file. `src/driftGuard.test.ts` reads both and fails when
+they disagree, so a cap cannot be relaxed in a config while the rules still
+claim the old value.
+
+| Setting                         | Value | Held in               |
+| ------------------------------- | ----- | --------------------- |
+| `max-lines-per-function`        | 120   | `eslint.config.js`    |
+| `max-lines` (per file)          | 500   | `eslint.config.js`    |
+| `complexity`                    | 10    | `eslint.config.js`    |
+| `max-depth`                     | 3     | `eslint.config.js`    |
+| `max-params`                    | 5     | `eslint.config.js`    |
+| `max-statements`                | 70    | `eslint.config.js`    |
+| `coverage.thresholds` (%)       | 80    | `vitest.config.ts`    |
+| `thresholds.break` (mutation %) | 90    | `stryker.conf.mjs`    |
+| `printWidth` (columns)          | 100   | `.prettierrc`         |
+| `minimumReleaseAge` (days)      | 30    | `pnpm-workspace.yaml` |
+
+Change the config and this table together. Both directions are checked: a row
+with no probe behind it fails just as loudly as a probe with no row.
+
+### Drift guards
+
+- `src/driftGuard.test.ts` holds the "change these two things together" rules,
+  as assertions.
+- Today:
+  - `src/env.ts` against `sample.env`, both directions;
+  - `src/` against the walkthrough's module map, both directions;
+  - the agent-rules mirrors (`.claude/rules`, `.clinerules`, `.kilocode/rules`)
+    against `agent_rules/`, every file;
+  - `AGENTS.md` against the contents of `agent_rules/`;
+  - the numbers table above against the configs that hold each number.
+- Add a guard there whenever a rule is written as "keep X and Y in step". Prose
+  gets followed nine times in ten, and the tenth failure is silent.

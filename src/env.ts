@@ -13,6 +13,8 @@
  */
 import { z } from 'zod';
 
+import { formatIssues } from './env.utils';
+
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
@@ -36,8 +38,4 @@ export function parseEnv(source: NodeJS.ProcessEnv): Env {
   }
 
   return result.data;
-}
-
-function formatIssues(error: z.ZodError): string {
-  return error.issues.map((issue) => `  ${issue.path.join('.')}: ${issue.message}`).join('\n');
 }

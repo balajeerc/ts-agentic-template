@@ -1,0 +1,28 @@
+# The heavier half of the gate.
+#
+# There is no CI here, so this hook and `pre-commit` are the whole of it. Be
+# honest about what that means: `git push --no-verify` walks straight past this,
+# and nothing downstream will notice. It is a gate you choose to keep, not one
+# imposed on you.
+#
+# `pre-commit` runs `pnpm check` on every commit. This runs the things that are
+# too slow for that, plus the two scans that used to live in CI.
+
+set -e
+
+if [ ! -x .tools/gitleaks ]; then
+  echo "gitleaks is not installed. Run: pnpm tools:install" >&2
+  exit 1
+fi
+
+echo "==> Scanning history for secrets"
+pnpm scan:secrets
+
+echo "==> Auditing dependencies"
+pnpm check:vulnerabilities
+
+echo "==> Building"
+pnpm build
+
+echo "==> Mutation testing"
+pnpm test:mutation

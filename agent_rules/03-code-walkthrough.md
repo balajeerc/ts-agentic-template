@@ -4,12 +4,18 @@
 
 ```
 src/
-├── index.ts        # entry point; wires env + logger, exposes `run`
-├── env.ts          # parsed, validated process environment (zod)
+├── index.ts            # entry point; wires env + logger, exposes `run`
+├── env.ts              # parsed, validated process environment (zod)
+├── env.utils.ts        # pure helpers for env.ts
 ├── env.test.ts
-├── logger.ts       # the pino logger singleton
+├── env.utils.test.ts
+├── logger.ts           # the pino logger singleton
+├── driftGuard.test.ts  # asserts the repo still agrees with itself
 └── index.test.ts
 ```
+
+This map is enforced. `src/driftGuard.test.ts` fails when a file under `src/`
+is missing from it, or when it names a file that no longer exists.
 
 ## Conventions
 
@@ -29,6 +35,43 @@ src/
 - `parseEnv` is exported for tests, so the failure path is testable without
   mutating the real `process.env`.
 - Adding a variable means editing `src/env.ts` **and** `sample.env` together.
+
+### Environment helpers — `src/env.utils.ts`
+
+- `formatIssues` renders Zod issues as one indented `path: message` line each.
+- It lives in its own file so a test can drive it with a nested schema.
+- The real schema is flat, so a `ZodError` from it never has a nested path —
+  inline, the dotted join was a line no test could pin down. Mutation testing
+  is what surfaced that; see `agent_rules/02-coding-guidelines.md`.
+
+### Drift guards — `src/driftGuard.test.ts`
+
+- Turns the "keep X and Y in step" rules into assertions.
+- Guards five pairings today:
+  - every key in the `src/env.ts` schema is documented in `sample.env`, and
+    the reverse;
+  - every file under `src/` appears in the module map above, and the reverse;
+  - every agent-rules mirror (`.claude/rules`, `.clinerules`,
+    `.kilocode/rules`) still serves the same content as `agent_rules/`, file by
+    file;
+  - `AGENTS.md` links every rule file and no others — it is a pointer rather
+    than a symlink, because a file cannot point at a directory;
+  - every number quoted in the table in `agent_rules/02-coding-guidelines.md`
+    matches the config that holds it.
+- Commented-out entries count on both sides of the env comparison. `sample.env`
+  comments out anything with a default; requiring the two files to agree on
+  _whether_ a key is commented would fail on the template as shipped.
+- The config numbers are read as text, not by importing each config. Half of
+  them could not be imported anyway — `eslint.config.js` has no type
+  declarations, `stryker.conf.mjs` is plain JS, `pnpm-workspace.yaml` is YAML —
+  and one mechanism reads better than three. Prettier owning the formatting is
+  what keeps the patterns stable.
+- A probe that stops matching fails the same way a drifted number does: loudly,
+  naming the setting.
+- It finds the repo root by walking up to `.git`, not by counting `..` from
+  `import.meta.url`. Stryker copies the project into a sandbox before mutating
+  it, and these are assertions about the repository, not about the copy.
+- Add a guard here whenever a rule is written as "change these two together".
 
 ### Logging — `src/logger.ts`
 

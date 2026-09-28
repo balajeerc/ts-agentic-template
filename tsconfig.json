@@ -14,6 +14,14 @@
        can skip by running `tsc` alone. */
     "verbatimModuleSyntax": true,
     "resolveJsonModule": true,
+    /* A side-effect import (`import './register-hooks'`) is currently the one
+       import form that resolves to nothing without complaint — a typo in the
+       path fails at runtime, on the machine that runs it. */
+    "noUncheckedSideEffectImports": true,
+    /* Every file is a module, whether or not it happens to contain an
+       import/export today. Without it, adding the first export to a script
+       silently changes its scope from global to module. */
+    "moduleDetection": "force",
     "esModuleInterop": true,
     "skipLibCheck": true,
 

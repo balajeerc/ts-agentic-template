@@ -41,3 +41,18 @@ verifyDepsBeforeRun: warn
 # its build step does.
 allowBuilds:
   esbuild: true
+
+# Advisories `pnpm audit` should not fail the pre-push hook on. Each entry is a
+# reviewed exception, not a way to make the scan quiet — same discipline as
+# `trustPolicyExclude` above.
+#
+# All three are the same transitive `qs`, reached only through
+# `@stryker-mutator/core` -> `typed-rest-client`. They are denial-of-service
+# bugs in a query-string serialiser that runs in a dev-only mutation-testing
+# tool against no attacker-controlled input. Drop these the moment Stryker
+# ships a `typed-rest-client` bump.
+auditConfig:
+  ignoreGhsas:
+    - GHSA-q8mj-m7cp-5q26
+    - GHSA-x5fp-wj9c-mxmx
+    - GHSA-4mjr-xmp4-gh2g
