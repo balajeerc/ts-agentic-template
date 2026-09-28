@@ -13,6 +13,7 @@
  *   const log = logger.child({ requestId });
  */
 import pino from 'pino';
+
 import { env } from './env';
 
 const isDevelopment = env.NODE_ENV === 'development';

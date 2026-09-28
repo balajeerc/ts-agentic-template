@@ -24,7 +24,25 @@ jobs:
       - uses: actions/checkout@v5
         with:
           # commitlint needs the range of commits the PR actually adds.
+          # gitleaks scans the full history, not just the working tree.
           fetch-depth: 0
+
+      # Secret scanning across the whole git history. Runs before any install:
+      # a leaked credential should fail fast, and gitleaks needs the checkout
+      # alone. Using the official action rather than a raw download pins the
+      # version and feeds results back into the Actions UI.
+      - name: Detect secrets
+        uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Lockfile vulnerability scan. osv-scanner reads pnpm-lock.yaml directly,
+      # so it needs no install and covers transitive deps that `minimumReleaseAge`
+      # cannot see.
+      - name: Scan dependencies for vulnerabilities
+        uses: google/osv-scanner-action@v2
+        with:
+          fail-on-vuln: true
 
       - uses: pnpm/action-setup@v4
 

@@ -8,6 +8,11 @@
 
     "noEmit": true,
     "isolatedModules": true,
+    /* Type-only imports are erased, not just preferred: `import { type Foo }`
+       becomes a compile error if written as a value import. Keeps the lint
+       rule (`consistent-type-imports`) from being the only guard an agent
+       can skip by running `tsc` alone. */
+    "verbatimModuleSyntax": true,
     "resolveJsonModule": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
@@ -27,6 +32,10 @@
        "absent" and "present but undefined" from silently merging. */
     "exactOptionalPropertyTypes": true,
     "noPropertyAccessFromIndexSignature": false,
+    /* Compile failures, not lint warnings: overriding a base-class member
+       without `override`, and importing a file with the wrong casing. */
+    "noImplicitOverride": true,
+    "forceConsistentCasingInFileNames": true,
 
     "baseUrl": ".",
     "paths": {

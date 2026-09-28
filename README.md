@@ -8,21 +8,21 @@ rules and skills — and almost no application code.
 
 ### Dev tooling
 
-| Tool                   | Role                                                                                |
-| ---------------------- | ----------------------------------------------------------------------------------- |
-| **TypeScript**         | `strict` + `noUncheckedIndexedAccess` + `exactOptionalPropertyTypes`, ES2022        |
-| **Vitest**             | `*.test.ts` beside the code; coverage thresholds; `*.integration.test.ts` held back |
-| **ESLint**             | typescript-eslint `strict-type-checked`, sonarjs, unicorn, + complexity/size caps   |
-| **Prettier**           | formatting, checked in CI; `eslint-config-prettier` keeps the two from fighting     |
-| **knip**               | unused files, exports and dependencies — in both default and production mode        |
-| **jscpd**              | copy-paste detection at a 0% threshold                                              |
-| **dependency-cruiser** | circular imports, orphans, and your module boundaries                               |
-| **zod**                | `src/env.ts` — the environment, parsed and validated at boot                        |
-| **pino**               | `src/logger.ts` — structured logs; `no-console` is a lint error                     |
-| **commitlint**         | Conventional Commits, on `commit-msg` and on PRs                                    |
-| **husky**              | `pre-commit` runs the whole `pnpm check`                                            |
-| **GitHub Actions**     | the real gate — a hook is bypassable with `--no-verify`, CI is not                  |
-| **pnpm**               | with supply-chain guards in `pnpm-workspace.yaml` (see below)                       |
+| Tool                   | Role                                                                                                                  |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| **TypeScript**         | `strict` + `noUncheckedIndexedAccess` + `exactOptionalPropertyTypes` + `verbatimModuleSyntax`, ES2022                 |
+| **Vitest**             | `*.test.ts` beside the code; coverage thresholds; `*.integration.test.ts` held back                                   |
+| **ESLint**             | typescript-eslint `strict-type-checked`, sonarjs, unicorn, perfectionist, n, promise + caps                           |
+| **Prettier**           | formatting, checked in CI; `eslint-config-prettier` keeps the two from fighting                                       |
+| **knip**               | unused files, exports and dependencies — in both default and production mode                                          |
+| **jscpd**              | copy-paste detection at a 0% threshold                                                                                |
+| **dependency-cruiser** | circular imports, orphans, and your module boundaries                                                                 |
+| **zod**                | `src/env.ts` — the environment, parsed and validated at boot                                                          |
+| **pino**               | `src/logger.ts` — structured logs; `no-console` is a lint error                                                       |
+| **commitlint**         | Conventional Commits, on `commit-msg` and on PRs                                                                      |
+| **husky**              | `pre-commit` runs the whole `pnpm check`                                                                              |
+| **GitHub Actions**     | the real gate — a hook is bypassable with `--no-verify`, CI is not. Plus gitleaks secret scan + osv-scanner vuln scan |
+| **pnpm**               | with supply-chain guards in `pnpm-workspace.yaml` (see below)                                                         |
 
 ### Agent setup
 
@@ -95,6 +95,9 @@ Then:
 ## Conventions worth knowing
 
 - **`pnpm`, never `npm`.** The lockfile and the supply-chain guards assume it.
+- **New dependencies need ≥2,000 GitHub stars** (or `eslint-community`
+  maintenance). Below that, warn the user with the count and seek explicit
+  permission first. See `agent_rules/02-coding-guidelines.md`.
 - **Install with scripts off** — `pnpm install --ignore-scripts`. A dependency's
   install script is arbitrary code running as you, with your home directory in
   reach. Packages that genuinely need a build step go in

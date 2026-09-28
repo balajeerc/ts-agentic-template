@@ -73,6 +73,20 @@
 
 ## Dependencies
 
+- A new dependency is added only when its GitHub repository has at least 2,000
+  stars, or the package is maintained under the `eslint-community` GitHub
+  organisation (the curated exception for widely-downloaded eslint plugins that
+  deliberately have small star counts).
+  - Check before adding. Scoped npm names are not the repo name — resolve the
+    real repository first with `npm view <package> repository.url`, then read
+    its stars with `gh api repos/{owner}/{repo} --jq .stargazers_count`.
+  - If a candidate is below 2,000 stars (and not `eslint-community`), do not
+    install it silently. Report the star count to the user and ask for
+    explicit permission before proceeding.
+  - GitHub Actions are dependencies too — apply the same check to the action's
+    repository. The official wrapper action for a high-star project (for
+    example `gitleaks/gitleaks-action` for `gitleaks/gitleaks`, ~29k stars)
+    counts as that project, not as a standalone package.
 - Install with scripts off: `pnpm add --ignore-scripts <package>`.
 - After a fresh clone, run `pnpm hooks:install`. `--ignore-scripts` skips the
   `prepare` script that installs husky, so without it the git hooks are inert.

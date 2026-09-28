@@ -1,9 +1,11 @@
 import js from '@eslint/js';
 import globals from 'globals';
-import tseslint from '@typescript-eslint/eslint-plugin';
-import tsparser from '@typescript-eslint/parser';
+import tseslint from 'typescript-eslint';
 import sonarjs from 'eslint-plugin-sonarjs';
 import unicorn from 'eslint-plugin-unicorn';
+import perfectionist from 'eslint-plugin-perfectionist';
+import pluginN from 'eslint-plugin-n';
+import pluginPromise from 'eslint-plugin-promise';
 import eslintConfigPrettier from 'eslint-config-prettier';
 
 /*
@@ -13,18 +15,85 @@ import eslintConfigPrettier from 'eslint-config-prettier';
  * real setting, and `pnpm check:format` is what enforces it.
  */
 
+// `src/env.ts` is the one place `process.env` may be read — it is the file
+// whose whole job is to parse and validate it. The ban below targets everything
+// else; the `src/env.ts` override at the bottom re-specifies the rule without
+// the process.env selector rather than an eslint-disable comment.
+const processEnvSelector = {
+  selector: "MemberExpression[object.name='process'][property.name='env']",
+  message: 'Read configuration from src/env.ts, never process.env directly.',
+};
+
+// Left behind by an agent, `it.only` silently disables the rest of the suite;
+// `it.skip` rots in place. Neither is ever right to commit.
+const focusedTestSelector = {
+  selector:
+    'CallExpression[callee.object.name=/^(it|test|describe|suite|context)$/][callee.property.name=/^(only|skip)$/]',
+  message: 'Remove .only()/.skip() before committing.',
+};
+
 const sharedPlugins = {
-  '@typescript-eslint': tseslint,
+  '@typescript-eslint': tseslint.plugin,
   sonarjs: sonarjs,
   unicorn: unicorn,
+  perfectionist: perfectionist,
+  n: pluginN,
+  promise: pluginPromise,
 };
 
 const sharedTypeScriptRules = {
-  ...js.configs.recommended.rules,
-  ...tseslint.configs['eslint-recommended'].overrides[0].rules,
-  ...tseslint.configs['strict-type-checked'].rules,
-  ...tseslint.configs['stylistic-type-checked'].rules,
   ...sonarjs.configs.recommended.rules,
+  ...pluginPromise.configs.recommended.rules,
+
+  // Deterministic ordering, curated. Import/export/type-member order is what
+  // makes an agent's output diff-reviewable — the same import set should always
+  // sort the same way regardless of which agent (or which day) wrote it.
+  //
+  // Object-literal and class-member order is often *meaningful* (a config
+  // builder reads top to bottom, a class body is written in an intentional
+  // order), so perfectionist's `sort-objects` / `sort-maps` / `sort-classes`
+  // and friends are deliberately left off. Sorting those fights the author.
+  'perfectionist/sort-imports': [
+    'error',
+    {
+      type: 'natural',
+      internalPattern: ['^@/'],
+      groups: ['builtin', 'external', 'internal', 'parent', 'sibling', 'index', 'type', 'unknown'],
+      ignoreCase: true,
+    },
+  ],
+  'perfectionist/sort-named-imports': ['error', { type: 'natural', ignoreAlias: false }],
+  'perfectionist/sort-named-exports': ['error', { type: 'natural' }],
+  'perfectionist/sort-exports': ['error', { type: 'natural' }],
+  'perfectionist/sort-union-types': ['error', { type: 'natural' }],
+  'perfectionist/sort-intersection-types': ['error', { type: 'natural' }],
+  'perfectionist/sort-object-types': ['error', { type: 'natural' }],
+  'perfectionist/sort-heritage-clauses': ['error', { type: 'natural' }],
+  'perfectionist/sort-interfaces': ['error', { type: 'natural' }],
+
+  // Node API correctness (eslint-plugin-n), curated. The module-resolution
+  // rules (`no-extraneous-import`, `no-missing-import`, `no-unpublished-*`)
+  // are left off: they do not understand the `@/*` tsconfig path alias and
+  // tsc + knip already cover missing imports and unused deps respectively.
+  'n/no-deprecated-api': 'error',
+  'n/no-exports-assign': 'error',
+  'n/no-process-exit': 'error',
+  'n/process-exit-as-throw': 'error',
+  'n/hashbang': 'error',
+  'n/no-unsupported-features/es-builtins': 'error',
+  'n/no-unsupported-features/es-syntax': 'error',
+  'n/no-unsupported-features/node-builtins': 'error',
+
+  // `.then` chains are harder to read, reason about and error-handle than
+  // `await`. Core rules already ban async executors; this bans the rest.
+  'promise/prefer-await-to-then': 'error',
+  'no-promise-executor-return': 'error',
+
+  // The `process.env` convention in `agent_rules/02` and `src/env.ts`, made
+  // mechanical. `process.env.X` is `string | undefined` and reading it outside
+  // `env.ts` pushes the failure far from the boot-time validation that exists
+  // to catch it. Also bans focused/disabled tests (see the selectors above).
+  'no-restricted-syntax': ['error', processEnvSelector, focusedTestSelector],
 
   // Unicorn recommended rules (selected for readability)
   'unicorn/better-regex': 'error',
@@ -127,7 +196,7 @@ const sharedTypeScriptRules = {
   'max-statements': ['error', { max: 70 }, { ignoreTopLevelFunctions: false }],
 };
 
-export default [
+export default tseslint.config(
   {
     ignores: ['dist', 'node_modules', 'coverage'],
   },
@@ -135,12 +204,18 @@ export default [
   // root-level config file (vitest.config.ts) is linted too, and `projectService`
   // rather than a fixed `project` so a new file is type-checked without anyone
   // remembering to widen a glob.
+  //
+  // `tseslint.config()` (the `typescript-eslint` meta-package) replaces the old
+  // hand-assembled plugin + parser + `configs['eslint-recommended'].overrides[0]`
+  // wiring. `strictTypeChecked` already bundles the base setup and the
+  // eslint-recommended turn-offs, so there is no internal array index to break
+  // on a dependency bump.
   {
     files: ['**/*.ts'],
     languageOptions: {
       ecmaVersion: 2022,
       globals: globals.node,
-      parser: tsparser,
+      parser: tseslint.parser,
       parserOptions: {
         ecmaVersion: 'latest',
         sourceType: 'module',
@@ -149,7 +224,21 @@ export default [
       },
     },
     plugins: { ...sharedPlugins },
+    extends: [
+      js.configs.recommended,
+      ...tseslint.configs.strictTypeChecked,
+      ...tseslint.configs.stylisticTypeChecked,
+    ],
     rules: { ...sharedTypeScriptRules },
+  },
+  // `process.env` may be read here and only here. Re-specifying the rule with
+  // the test selector only keeps the `.only`/`.skip` ban, without an
+  // eslint-disable comment.
+  {
+    files: ['src/env.ts'],
+    rules: {
+      'no-restricted-syntax': ['error', focusedTestSelector],
+    },
   },
   // Tests. The production rules stay on; these are the ones that only cost
   // noise in a test file.
@@ -179,11 +268,22 @@ export default [
     plugins: {
       sonarjs: sonarjs,
       unicorn: unicorn,
+      n: pluginN,
+      promise: pluginPromise,
     },
     rules: {
       ...js.configs.recommended.rules,
       ...sonarjs.configs.recommended.rules,
+      ...pluginPromise.configs.recommended.rules,
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+
+      'n/no-deprecated-api': 'error',
+      'n/no-exports-assign': 'error',
+      'n/no-process-exit': 'error',
+      'n/process-exit-as-throw': 'error',
+      'n/hashbang': 'error',
+      'promise/prefer-await-to-then': 'error',
+      'no-promise-executor-return': 'error',
 
       'unicorn/better-regex': 'error',
       'unicorn/catch-error-name': 'error',
@@ -210,5 +310,5 @@ export default [
       'max-depth': ['error', { max: 3 }],
     },
   },
-  eslintConfigPrettier,
-];
+  eslintConfigPrettier
+);

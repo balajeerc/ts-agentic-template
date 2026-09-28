@@ -99,7 +99,7 @@
       "Bash(node --version)",
       "Bash(tsc --noEmit:*)",
       "Bash(tsc -p:*)",
-      "Read(//tmp/**)",
+      "Read(/tmp/**)",
       "Bash(node_modules/.bin/tsc --noEmit)"
     ],
     "additionalDirectories": []
