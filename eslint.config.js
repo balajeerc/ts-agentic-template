@@ -6,6 +6,13 @@ import sonarjs from 'eslint-plugin-sonarjs';
 import unicorn from 'eslint-plugin-unicorn';
 import eslintConfigPrettier from 'eslint-config-prettier';
 
+/*
+ * Line length is NOT enforced here. `eslint-config-prettier` is last in the
+ * export and switches `max-len` off, so any cap set here would be dead config
+ * that reads as enforced. Prettier's `printWidth` in `.prettierrc` is the one
+ * real setting, and `pnpm check:format` is what enforces it.
+ */
+
 const sharedPlugins = {
   '@typescript-eslint': tseslint,
   sonarjs: sonarjs,
@@ -14,8 +21,9 @@ const sharedPlugins = {
 
 const sharedTypeScriptRules = {
   ...js.configs.recommended.rules,
-  ...tseslint.configs.recommended.rules,
-  ...tseslint.configs['recommended-requiring-type-checking'].rules,
+  ...tseslint.configs['eslint-recommended'].overrides[0].rules,
+  ...tseslint.configs['strict-type-checked'].rules,
+  ...tseslint.configs['stylistic-type-checked'].rules,
   ...sonarjs.configs.recommended.rules,
 
   // Unicorn recommended rules (selected for readability)
@@ -63,7 +71,7 @@ const sharedTypeScriptRules = {
   'sonarjs/cognitive-complexity': 'error',
   'sonarjs/no-nested-functions': 'error',
 
-  // TypeScript specific rules
+  // TypeScript rules not already covered by strict-type-checked
   '@typescript-eslint/no-unused-vars': [
     'error',
     {
@@ -73,47 +81,62 @@ const sharedTypeScriptRules = {
   ],
   '@typescript-eslint/explicit-function-return-type': 'error',
   '@typescript-eslint/explicit-module-boundary-types': 'error',
-  '@typescript-eslint/no-explicit-any': 'error',
-  '@typescript-eslint/no-non-null-assertion': 'error',
-  '@typescript-eslint/no-unsafe-assignment': 'error',
-  '@typescript-eslint/no-unsafe-member-access': 'error',
-  '@typescript-eslint/no-unsafe-call': 'error',
-  '@typescript-eslint/no-unsafe-argument': 'error',
-  '@typescript-eslint/no-unsafe-return': 'error',
-  '@typescript-eslint/no-misused-promises': 'error',
-  '@typescript-eslint/no-redundant-type-constituents': 'error',
-  '@typescript-eslint/no-unnecessary-type-assertion': 'error',
+  '@typescript-eslint/prefer-readonly': 'error',
+  // Adding a variant to a discriminated union becomes a compile-time failure at
+  // every switch over it, rather than a silent fallthrough at runtime.
+  '@typescript-eslint/switch-exhaustiveness-check': [
+    'error',
+    { considerDefaultExhaustiveForUnions: true },
+  ],
+  // Type-only imports are erased predictably under `isolatedModules`.
+  '@typescript-eslint/consistent-type-imports': [
+    'error',
+    { fixStyle: 'inline-type-imports', prefer: 'type-imports' },
+  ],
+
+  // Use the logger in `src/logger.ts`. Console output is unstructured, unleveled
+  // and invisible to log aggregation.
+  'no-console': 'error',
 
   // Complexity rules
   complexity: ['error', { max: 10 }],
   'max-depth': ['error', { max: 3 }],
   'max-nested-callbacks': ['error', { max: 3 }],
   'max-params': ['error', { max: 5 }],
-  'max-statements': ['error', { max: 70 }, { ignoreTopLevelFunctions: false }],
   'max-lines': ['error', { max: 500, skipBlankLines: true, skipComments: true }],
 
-  // Line length
-  'max-len': [
-    'error',
-    {
-      code: 120,
-      tabWidth: 2,
-      ignoreUrls: true,
-      ignoreStrings: true,
-      ignoreTemplateLiterals: true,
-      ignoreRegExpLiterals: true,
-      ignoreComments: true,
-    },
-  ],
+  /*
+   * The cap that matters, and the one stated in `agent_rules/02`: refactor a
+   * function over 120 lines. It is expressed in lines rather than statements on
+   * purpose — that is the unit the guideline uses, so it is the unit someone can
+   * act on when the rule fires.
+   */
+  'max-lines-per-function': ['error', { max: 120, skipBlankLines: true, skipComments: true }],
+
+  /*
+   * A backstop for the pathological case, deliberately far out at 70.
+   *
+   * This is the only size rule that fires on code which is long but NOT complex
+   * — a flat sequence of assignments in a config builder or a wiring function
+   * has cyclomatic complexity 1 and trips nothing else. Tightening it pushes
+   * toward single-use helpers that scatter a linear narrative across files,
+   * which reads worse than the long version. `complexity`,
+   * `sonarjs/cognitive-complexity` and `max-lines-per-function` are what do the
+   * real work here.
+   */
+  'max-statements': ['error', { max: 70 }, { ignoreTopLevelFunctions: false }],
 };
 
 export default [
   {
     ignores: ['dist', 'node_modules', 'coverage'],
   },
-  // TypeScript sources
+  // TypeScript sources. `**/*.ts` rather than a src/scripts allowlist so that a
+  // root-level config file (vitest.config.ts) is linted too, and `projectService`
+  // rather than a fixed `project` so a new file is type-checked without anyone
+  // remembering to widen a glob.
   {
-    files: ['src/**/*.ts', 'scripts/**/*.ts'],
+    files: ['**/*.ts'],
     languageOptions: {
       ecmaVersion: 2022,
       globals: globals.node,
@@ -121,13 +144,28 @@ export default [
       parserOptions: {
         ecmaVersion: 'latest',
         sourceType: 'module',
-        project: './tsconfig.json',
+        projectService: true,
+        tsconfigRootDir: import.meta.dirname,
       },
     },
     plugins: { ...sharedPlugins },
     rules: { ...sharedTypeScriptRules },
   },
-  // Plain JS / config files — no type-aware rules, so no `project` needed.
+  // Tests. The production rules stay on; these are the ones that only cost
+  // noise in a test file.
+  {
+    files: ['**/*.test.ts', '**/*.integration.test.ts'],
+    rules: {
+      '@typescript-eslint/explicit-function-return-type': 'off',
+      '@typescript-eslint/no-non-null-assertion': 'off',
+      'max-nested-callbacks': ['error', { max: 5 }],
+      'sonarjs/no-duplicate-string': 'off',
+      // A `describe` block is itself a function, so this counts the whole suite
+      // as one body. `max-lines` still caps the file at 500.
+      'max-lines-per-function': 'off',
+    },
+  },
+  // Plain JS / config files — no type-aware rules, so no project service needed.
   {
     files: ['**/*.{js,mjs,cjs}'],
     languageOptions: {
@@ -170,16 +208,6 @@ export default [
 
       complexity: ['error', { max: 10 }],
       'max-depth': ['error', { max: 3 }],
-      'max-len': [
-        'error',
-        {
-          code: 120,
-          tabWidth: 2,
-          ignoreUrls: true,
-          ignoreStrings: true,
-          ignoreTemplateLiterals: true,
-        },
-      ],
     },
   },
   eslintConfigPrettier,

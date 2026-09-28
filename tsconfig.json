@@ -18,7 +18,14 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
     "noImplicitReturns": true,
-    "noUncheckedIndexedAccess": false,
+    /* The highest-value flag for agent-written code: `arr[0]` and `map[key]`
+       become `T | undefined`, so the indexing that crashes at runtime fails at
+       compile time instead. Non-null assertions are a lint error, so the fix
+       has to be a real guard. */
+    "noUncheckedIndexedAccess": true,
+    /* `{ a?: string }` stops accepting an explicit `a: undefined`, which keeps
+       "absent" and "present but undefined" from silently merging. */
+    "exactOptionalPropertyTypes": true,
     "noPropertyAccessFromIndexSignature": false,
 
     "baseUrl": ".",

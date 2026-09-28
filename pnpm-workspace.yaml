@@ -1,3 +1,41 @@
+# ===========================================
+# pnpm supply-chain configuration
+# See: https://pnpm.io/supply-chain-security
+#
+# These live here, NOT in `.npmrc`. pnpm 10.16+ moved its own settings out of
+# `.npmrc`; a key left there is silently ignored, and the guard you think you
+# have is not there. `pnpm config list` is how you confirm a setting is live.
+# ===========================================
+
+# Refuse packages published within the last 30 days (value is in MINUTES).
+# A malicious release is usually caught and unpublished well inside that window.
+#
+# Consequence worth knowing: this constrains RESOLUTION, not just verification.
+# A `^x.y.z` range pinned to a release from this week has no mature version to
+# fall back to, and the install fails outright. Range the dependency at the
+# newest MATURED version instead, and let it drift upward on its own.
+minimumReleaseAge: 43200
+
+# Transitive deps must come from the registry — no git repos, no tarball URLs.
+blockExoticSubdeps: true
+
+# Refuse an update whose publisher trust level dropped since the last release.
+# Catches account takeovers and maintainer handoffs to an unknown party.
+trustPolicy: no-downgrade
+
+# Reviewed exceptions to `trustPolicy`, pinned to an exact version so a later
+# release has to be re-reviewed rather than inheriting the exemption. Both are
+# transitive deps of the test tooling that changed publishing setup, not
+# ownership. Verify before adding to this list; do not grow it to make an
+# install pass.
+trustPolicyExclude:
+  - why-is-node-running@3.2.2
+  - fastq@1.20.2
+
+# Warn when node_modules is out of date with the lockfile before running a
+# script, so a check never passes against dependencies you are not actually on.
+verifyDepsBeforeRun: warn
+
 # Packages allowed to run their build/postinstall scripts. Everything else is
 # installed with scripts off — add a package here only after looking at what
 # its build step does.

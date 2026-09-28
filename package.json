@@ -3,6 +3,11 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "packageManager": "pnpm@12.4.1",
+  "engines": {
+    "node": ">=22",
+    "pnpm": ">=12"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "lint": "eslint . --max-warnings=0",
@@ -10,17 +15,28 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "check:format": "prettier --check .",
     "check:unused-code": "knip",
+    "check:unused-prod-code": "knip --production --strict",
     "check:code-duplication": "jscpd src --min-lines 10 --threshold 0 --ignore \"**/__fixtures__/**\"",
     "check:dependency-rules": "depcruise src --config .dependency-cruiser.cjs",
-    "check": "pnpm typecheck && pnpm lint && pnpm check:unused-code && pnpm check:code-duplication && pnpm check:dependency-rules && pnpm test",
+    "check": "pnpm typecheck && pnpm check:format && pnpm lint && pnpm check:unused-code && pnpm check:unused-prod-code && pnpm check:code-duplication && pnpm check:dependency-rules && pnpm test:coverage",
+    "fix": "eslint . --fix && prettier --write .",
     "prepare": "husky"
   },
+  "dependencies": {
+    "pino": "^10.3.1",
+    "zod": "^4.5.1"
+  },
   "devDependencies": {
+    "@commitlint/cli": "^21.2.2",
+    "@commitlint/config-conventional": "^21.2.2",
     "@eslint/js": "^9.39.1",
     "@types/node": "^25.6.0",
     "@typescript-eslint/eslint-plugin": "^8.50.1",
     "@typescript-eslint/parser": "^8.50.1",
+    "@vitest/coverage-v8": "^4.1.11",
     "dependency-cruiser": "^17.3.6",
     "eslint": "^9.39.1",
     "eslint-config-prettier": "^10.1.8",
@@ -28,11 +44,12 @@
     "eslint-plugin-unicorn": "^62.0.0",
     "globals": "^16.5.0",
     "husky": "^9.1.7",
-    "jscpd": "^4.0.7",
+    "jscpd": "^5.0.16",
     "knip": "^5.82.1",
+    "pino-pretty": "^13.1.3",
     "prettier": "^3.8.1",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
-    "vitest": "^4.1.5"
+    "vitest": "^4.1.11"
   }
 }
