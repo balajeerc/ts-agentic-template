@@ -21,7 +21,7 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           # commitlint needs the range of commits the PR actually adds.
           # gitleaks scans the full history, not just the working tree.
