@@ -23,6 +23,7 @@
     "check:dependency-rules": "depcruise src --config .dependency-cruiser.cjs",
     "check": "pnpm typecheck && pnpm check:format && pnpm lint && pnpm check:unused-code && pnpm check:unused-prod-code && pnpm check:code-duplication && pnpm check:dependency-rules && pnpm test:coverage",
     "fix": "eslint . --fix && prettier --write .",
+    "hooks:install": "husky",
     "prepare": "husky"
   },
   "dependencies": {

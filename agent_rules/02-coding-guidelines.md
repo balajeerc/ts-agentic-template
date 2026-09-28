@@ -74,6 +74,8 @@
 ## Dependencies
 
 - Install with scripts off: `pnpm add --ignore-scripts <package>`.
+- After a fresh clone, run `pnpm hooks:install`. `--ignore-scripts` skips the
+  `prepare` script that installs husky, so without it the git hooks are inert.
 - `minimumReleaseAge` (30 days) constrains **resolution**, not just
   verification. A `^x.y.z` range pinned to a release from this week has no
   mature version to fall back to and the install fails outright.

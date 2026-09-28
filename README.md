@@ -56,8 +56,16 @@ output about things that need judgement.
 
 ```bash
 pnpm install --ignore-scripts
+pnpm hooks:install   # see below — `--ignore-scripts` skips `prepare`
 pnpm check
 ```
+
+`pnpm hooks:install` is a separate step on purpose. Husky installs itself from
+the `prepare` lifecycle script, and `--ignore-scripts` — which is the right way
+to install — skips `prepare` along with everything else. Without that second
+line the `pre-commit` and `commit-msg` hooks are present as files but never
+run, and `git config core.hooksPath` is unset. That is the symptom to check for
+if a commit sails through with a failing `pnpm check`.
 
 Then:
 
@@ -80,6 +88,7 @@ Then:
 | `pnpm test` / `test:watch` | Vitest                                                           |
 | `pnpm test:coverage`       | Vitest with thresholds enforced                                  |
 | `pnpm build`               | emits `dist/` with declarations                                  |
+| `pnpm hooks:install`       | installs the husky git hooks (needed after a fresh clone)        |
 
 `pnpm check` is also the `pre-commit` hook, and CI runs it on every push and PR.
 
